@@ -1,0 +1,15 @@
+# modelos (CRÍTICO)
+*.pkl
+*.joblib
+
+# entorno
+venv/
+.env/
+
+# cache Python
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
