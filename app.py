@@ -225,23 +225,6 @@ ALIAS_EQUIPOS = {
     'Japón': 'Japan',
 }
 
-RESULTADOS_CONFIRMADOS_16AVOS = {
-    frozenset(('Canada', 'South Africa')): {
-        'equipo_A': 'Canada',
-        'equipo_B': 'South Africa',
-        'goles_A': 1,
-        'goles_B': 0,
-        'ganador': 'Canada',
-    },
-    frozenset(('Brazil', 'Japan')): {
-        'equipo_A': 'Brazil',
-        'equipo_B': 'Japan',
-        'goles_A': 2,
-        'goles_B': 1,
-        'ganador': 'Brazil',
-    },
-}
-
 TEAM_CODE_TO_NAME = {
     'ALE': 'Germany',
     'PAR': 'Paraguay',
@@ -261,18 +244,18 @@ TEAM_CODE_TO_NAME = {
     'SEN': 'Senegal',
     'BRA': 'Brazil',
     'JPN': 'Japan',
-    'CDV': 'Cape Verde',
+    'CIV': "Côte d'Ivoire",
     'NOR': 'Norway',
     'MEX': 'Mexico',
     'ECU': 'Ecuador',
     'ENG': 'England',
-    'REP.DEMOCR.DEL CONGO(COD)': 'DR Congo',
+    'COD': 'DR Congo',
     'ARG': 'Argentina',
-    'CUW': 'Curaçao',
+    'CPV': 'Cape Verde',
     'AUS': 'Australia',
     'EGY': 'Egypt',
     'SUI': 'Switzerland',
-    'ARGELIA (ALG)': 'Algeria',
+    'ALG': 'Algeria',
     'COL': 'Colombia',
     'GHA': 'Ghana',
 }
@@ -362,12 +345,12 @@ ROUND_OF_32_FIXTURES = [
     ('USA-BOS', 'United States', 'Bosnia and Herzegovina'),
     ('BEL-SEN', 'Belgium', 'Senegal'),
     ('BRA-JPN', 'Brazil', 'Japan'),
-    ('CDV-NOR', 'Cape Verde', 'Norway'),
+    ('CIV-NOR', "Côte d'Ivoire", 'Norway'),
     ('MEX-ECU', 'Mexico', 'Ecuador'),
-    ('ENG-REP.DEMOCR.DEL CONGO(COD)', 'England', 'DR Congo'),
-    ('ARG-CUW', 'Argentina', 'Curaçao'),
+    ('ENG-COD', 'England', 'DR Congo'),
+    ('ARG-CPV', 'Argentina', 'Cape Verde'),
     ('AUS-EGY', 'Australia', 'Egypt'),
-    ('SUI-ARGELIA (ALG)', 'Switzerland', 'Algeria'),
+    ('SUI-ALG', 'Switzerland', 'Algeria'),
     ('COL-GHA', 'Colombia', 'Ghana'),
 ]
 
@@ -379,11 +362,16 @@ ROUND_OF_32_LEFT_BRANCHES = [
 ]
 
 ROUND_OF_32_RIGHT_BRANCHES = [
-    ('BRA-JPN', 'CDV-NOR'),
-    ('MEX-ECU', 'ENG-REP.DEMOCR.DEL CONGO(COD)'),
-    ('ARG-CUW', 'AUS-EGY'),
-    ('SUI-ARGELIA (ALG)', 'COL-GHA'),
+    ('BRA-JPN', 'CIV-NOR'),
+    ('MEX-ECU', 'ENG-COD'),
+    ('ARG-CPV', 'AUS-EGY'),
+    ('SUI-ALG', 'COL-GHA'),
 ]
+
+# Orden canónico del cuadro de 16avos (izquierda + derecha) usado para
+# encadenar las rondas siguientes: octavos, cuartos, semifinal y final.
+ROUND_OF_32_BRACKET_ORDER = [codigo for par in ROUND_OF_32_LEFT_BRANCHES for codigo in par] + \
+    [codigo for par in ROUND_OF_32_RIGHT_BRANCHES for codigo in par]
 
 CRUCES_CONFIRMADOS_16AVOS = [
     ('Canada', 'South Africa', '1-0', 'Canada'),
@@ -448,6 +436,8 @@ def cargar_llaves_desde_csv():
             df = df.rename(columns={columnas['estado']: 'Estado'})
         if 'marcador' in columnas:
             df = df.rename(columns={columnas['marcador']: 'Marcador'})
+        if 'penales' in columnas:
+            df = df.rename(columns={columnas['penales']: 'Penales'})
         if 'ganador' in columnas:
             df = df.rename(columns={columnas['ganador']: 'Ganador'})
 
@@ -455,12 +445,14 @@ def cargar_llaves_desde_csv():
             df['Estado'] = 'Por jugar'
         if 'Marcador' not in df.columns:
             df['Marcador'] = ''
+        if 'Penales' not in df.columns:
+            df['Penales'] = ''
         if 'Ganador' not in df.columns:
             df['Ganador'] = ''
 
         df['Equipo_A'] = df['Equipo_A'].astype(str).map(_formatear_nombre_mostrar)
         df['Equipo_B'] = df['Equipo_B'].astype(str).map(_formatear_nombre_mostrar)
-        return df[['Codigo', 'Equipo_A', 'Equipo_B', 'Estado', 'Marcador', 'Ganador']].reset_index(drop=True)
+        return df[['Codigo', 'Equipo_A', 'Equipo_B', 'Estado', 'Marcador', 'Penales', 'Ganador']].reset_index(drop=True)
     except Exception:
         filas = []
         for codigo, equipo_a, equipo_b in ROUND_OF_32_FIXTURES:
@@ -470,6 +462,7 @@ def cargar_llaves_desde_csv():
                 'Equipo_B': equipo_b,
                 'Estado': 'Por jugar',
                 'Marcador': '',
+                'Penales': '',
                 'Ganador': '',
             })
         return pd.DataFrame(filas)
@@ -481,6 +474,16 @@ def obtener_mejores_terceros(df_grupos):
     return set(terceros.head(8)['Equipo'].tolist())
 
 
+def _marcador_con_penales(marcador, penales):
+    marcador_str = str(marcador).strip() if pd.notna(marcador) else ''
+    penales_str = str(penales).strip() if pd.notna(penales) else ''
+    if not marcador_str:
+        return '-'
+    if penales_str:
+        return f"{marcador_str} (pen. {penales_str})"
+    return marcador_str
+
+
 GROUPS_FINAL_DF = cargar_grupos_desde_csv()
 BEST_THIRD_TEAMS = obtener_mejores_terceros(GROUPS_FINAL_DF)
 KNOCKOUT_FIXTURES_DF = cargar_llaves_desde_csv()
@@ -490,12 +493,28 @@ KNOCKOUT_LOOKUP = {
         'equipo_b': row['Equipo_B'],
         'estado': row['Estado'],
         'marcador': row['Marcador'],
+        'penales': row['Penales'],
         'ganador': row['Ganador'],
     }
     for _, row in KNOCKOUT_FIXTURES_DF.iterrows()
 }
+
+# Única fuente de verdad: se arma a partir del CSV, no hay datos hardcodeados
+# que se puedan desincronizar entre sí.
+RESULTADOS_CONFIRMADOS_16AVOS = {
+    frozenset((row['Equipo_A'], row['Equipo_B'])): {
+        'equipo_A': row['Equipo_A'],
+        'equipo_B': row['Equipo_B'],
+        'marcador': row['Marcador'],
+        'penales': row['Penales'],
+        'ganador': row['Ganador'],
+    }
+    for _, row in KNOCKOUT_FIXTURES_DF.iterrows()
+    if str(row['Estado']).strip().lower() == 'confirmado'
+}
+
 CRUCES_CONFIRMADOS_16AVOS = [
-    (row['Equipo_A'], row['Equipo_B'], row['Marcador'], row['Ganador'])
+    (row['Equipo_A'], row['Equipo_B'], _marcador_con_penales(row['Marcador'], row['Penales']), row['Ganador'])
     for _, row in KNOCKOUT_FIXTURES_DF.iterrows()
     if str(row['Estado']).strip().lower() == 'confirmado'
 ]
@@ -640,13 +659,24 @@ def predecir_partido_eliminatoria(equipo_A, equipo_B):
     llave = frozenset((equipo_A, equipo_B))
     if llave in RESULTADOS_CONFIRMADOS_16AVOS:
         confirmado = RESULTADOS_CONFIRMADOS_16AVOS[llave]
-        marcador = f"{confirmado['goles_A']}-{confirmado['goles_B']}"
+        marcador = confirmado['marcador']
+        penales = confirmado['penales']
+
+        # Si nos piden el partido en el orden inverso al que está cargado
+        # en el CSV, invertimos marcador y penales para que sigan siendo
+        # consistentes con equipo_A/equipo_B recibidos.
         if confirmado['equipo_A'] != equipo_A:
-            marcador = f"{confirmado['goles_B']}-{confirmado['goles_A']}"
+            if '-' in str(marcador):
+                g_a, g_b = str(marcador).split('-', 1)
+                marcador = f"{g_b}-{g_a}"
+            if penales and '-' in str(penales):
+                p_a, p_b = str(penales).split('-', 1)
+                penales = f"{p_b}-{p_a}"
+
         return {
             'partido': f'{equipo_A} vs {equipo_B}',
             'estado': 'Confirmado',
-            'marcador': marcador,
+            'marcador': _marcador_con_penales(marcador, penales),
             'ganador': confirmado['ganador'],
             'prob_A': None,
             'prob_empate': None,
@@ -719,6 +749,160 @@ def simular_llaves_montecarlo(fixtures, n_iter=5000):
 
     return pd.DataFrame(filas).sort_values('Probabilidad de clasificar %', ascending=False).reset_index(drop=True)
 
+
+# ---------------------------------------------------------------------------
+# Bracket completo: 16avos -> Octavos -> Cuartos -> Semifinal -> Final
+# ---------------------------------------------------------------------------
+
+ETAPAS_BRACKET = ['16avos', 'Octavos', 'Cuartos', 'Semifinal', 'Final']
+ETAPA_SIGUIENTE = {
+    '16avos': 'Octavos',
+    'Octavos': 'Cuartos',
+    'Cuartos': 'Semifinal',
+    'Semifinal': 'Final',
+    'Final': 'Campeón',
+}
+
+
+def construir_partidos_16avos():
+    """Arma la lista de 16 cruces de 16avos en el orden canónico del cuadro
+    (izquierda + derecha), tomando los equipos reales desde el CSV."""
+    partidos = []
+    for codigo in ROUND_OF_32_BRACKET_ORDER:
+        info = KNOCKOUT_LOOKUP.get(codigo)
+        if info:
+            partidos.append((info['equipo_a'], info['equipo_b']))
+    return partidos
+
+
+def obtener_probabilidades_partido(equipo_A, equipo_B, cache_probs):
+    """Devuelve (prob_A, prob_empate, prob_B) para el cruce, reutilizando el
+    modelo a través de un caché para no recalcular el mismo enfrentamiento
+    miles de veces durante una simulación Monte Carlo."""
+    llave = frozenset((equipo_A, equipo_B))
+    if llave in cache_probs:
+        prob_A, prob_E, prob_B, equipo_de_referencia = cache_probs[llave]
+        if equipo_de_referencia == equipo_A:
+            return prob_A, prob_E, prob_B
+        return prob_B, prob_E, prob_A
+
+    X_pred = calcular_features_partido(equipo_A, equipo_B)
+    probs = rf_model.predict_proba(X_pred)[0]
+    clases = list(rf_model.classes_)
+    idx_A, idx_E, idx_B = clases.index('Gana_A'), clases.index('Empate'), clases.index('Gana_B')
+    prob_A, prob_E, prob_B = probs[idx_A], probs[idx_E], probs[idx_B]
+    cache_probs[llave] = (prob_A, prob_E, prob_B, equipo_A)
+    return prob_A, prob_E, prob_B
+
+
+def resolver_partido_bracket(equipo_A, equipo_B, cache_probs, aleatorio):
+    """Resuelve un cruce de eliminación directa.
+
+    - Si el cruce ya fue jugado (está en RESULTADOS_CONFIRMADOS_16AVOS), respeta
+      el resultado real.
+    - Si aleatorio=True, sortea el resultado según las probabilidades del modelo
+      (Monte Carlo). En caso de empate en los 90 minutos, el ganador se define
+      con un sorteo 50/50, ya que no hay datos históricos de penales para
+      modelar esa instancia.
+    - Si aleatorio=False, devuelve el resultado más probable (predicción puntual).
+    """
+    llave = frozenset((equipo_A, equipo_B))
+    if llave in RESULTADOS_CONFIRMADOS_16AVOS:
+        confirmado = RESULTADOS_CONFIRMADOS_16AVOS[llave]
+        return confirmado['ganador'], 'Confirmado'
+
+    prob_A, prob_E, prob_B = obtener_probabilidades_partido(equipo_A, equipo_B, cache_probs)
+
+    if aleatorio:
+        outcome = np.random.choice(['Gana_A', 'Empate', 'Gana_B'], p=[prob_A, prob_E, prob_B])
+        if outcome == 'Gana_A':
+            return equipo_A, 'Simulado'
+        if outcome == 'Gana_B':
+            return equipo_B, 'Simulado'
+        ganador_penales = equipo_A if np.random.random() < 0.5 else equipo_B
+        return ganador_penales, 'Simulado (penales)'
+
+    score_A = prob_A + prob_E / 2
+    score_B = prob_B + prob_E / 2
+    ganador = equipo_A if score_A >= score_B else equipo_B
+    return ganador, 'Pronosticado'
+
+
+def jugar_ronda_bracket(partidos, cache_probs, aleatorio):
+    """Juega una ronda completa (lista de cruces) y arma los cruces de la
+    siguiente ronda emparejando ganadores consecutivos."""
+    detalle = []
+    ganadores = []
+    for equipo_A, equipo_B in partidos:
+        ganador, estado = resolver_partido_bracket(equipo_A, equipo_B, cache_probs, aleatorio)
+        detalle.append({
+            'equipo_A': equipo_A,
+            'equipo_B': equipo_B,
+            'ganador': ganador,
+            'estado': estado,
+        })
+        ganadores.append(ganador)
+
+    siguiente_ronda = [(ganadores[i], ganadores[i + 1]) for i in range(0, len(ganadores) - 1, 2)]
+    return detalle, siguiente_ronda
+
+
+def simular_bracket_unico(aleatorio=False):
+    """Corre el cuadro completo una sola vez (16avos -> Final) y devuelve el
+    detalle ronda por ronda más el campeón resultante."""
+    cache_probs = {}
+    partidos = construir_partidos_16avos()
+    detalle_por_etapa = {}
+
+    for etapa in ETAPAS_BRACKET:
+        detalle, siguiente = jugar_ronda_bracket(partidos, cache_probs, aleatorio)
+        detalle_por_etapa[etapa] = detalle
+        partidos = siguiente
+
+    campeon = detalle_por_etapa['Final'][0]['ganador']
+    return detalle_por_etapa, campeon
+
+
+@st.cache_data
+def simular_bracket_montecarlo(n_iter=2000):
+    """Simula el cuadro completo n_iter veces y devuelve, por equipo, el
+    porcentaje de veces que alcanzó cada etapa (incluyendo ser campeón)."""
+    equipos_iniciales = set()
+    for equipo_A, equipo_B in construir_partidos_16avos():
+        equipos_iniciales.add(equipo_A)
+        equipos_iniciales.add(equipo_B)
+
+    conteo = {
+        equipo: {'Octavos': 0, 'Cuartos': 0, 'Semifinal': 0, 'Final': 0, 'Campeón': 0}
+        for equipo in equipos_iniciales
+    }
+
+    cache_probs = {}
+    for _ in range(n_iter):
+        partidos = construir_partidos_16avos()
+        for etapa in ETAPAS_BRACKET:
+            detalle, siguiente = jugar_ronda_bracket(partidos, cache_probs, aleatorio=True)
+            etapa_alcanzada = ETAPA_SIGUIENTE[etapa]
+            for fila in detalle:
+                conteo[fila['ganador']][etapa_alcanzada] += 1
+            partidos = siguiente
+
+    filas = []
+    for equipo, stats in conteo.items():
+        filas.append({
+            'Equipo': equipo,
+            'Octavos %': round(stats['Octavos'] / n_iter * 100, 1),
+            'Cuartos %': round(stats['Cuartos'] / n_iter * 100, 1),
+            'Semifinal %': round(stats['Semifinal'] / n_iter * 100, 1),
+            'Final %': round(stats['Final'] / n_iter * 100, 1),
+            'Campeón %': round(stats['Campeón'] / n_iter * 100, 1),
+        })
+
+    return pd.DataFrame(filas).sort_values(
+        by=['Campeón %', 'Final %', 'Semifinal %'], ascending=False
+    ).reset_index(drop=True)
+
+
 # --- Interfaz de Usuario ---
 st.sidebar.header("Parámetros de Simulación")
 st.markdown("""
@@ -744,7 +928,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-tabs = st.tabs(["Fase de grupos", "Llaves", "Predicciones"])
+tabs = st.tabs(["Fase de grupos", "Llaves", "Predicciones", "Bracket completo"])
 
 with tabs[0]:
     st.success("Fase de grupos terminada.")
@@ -803,7 +987,7 @@ with tabs[2]:
 
     if st.button("Simular 16avos con Monte Carlo", type="primary"):
         with st.spinner("Corriendo simulación Monte Carlo..."):
-            st.session_state['simulacion_16avos_mc'] = simular_llaves_montecarlo(obtener_fixtures_predictivos(), n_iter=20)
+            st.session_state['simulacion_16avos_mc'] = simular_llaves_montecarlo(obtener_fixtures_predictivos(), n_iter=5000)
 
     fixtures_predictivos = obtener_fixtures_predictivos()
     resultados_16avos = [predecir_partido_eliminatoria(f['equipo_A'], f['equipo_B']) for f in fixtures_predictivos]
@@ -837,3 +1021,51 @@ with tabs[2]:
         st.markdown("#### Monte Carlo")
         st.caption("Frecuencia de clasificación estimada tras múltiples corridas de la ronda de 16avos.")
         st.dataframe(st.session_state['simulacion_16avos_mc'], use_container_width=True, hide_index=True)
+
+with tabs[3]:
+    st.markdown("### Bracket completo: de 16avos a la Final")
+    st.caption(
+        "Encadena los resultados de 16avos con Octavos, Cuartos, Semifinal y Final. "
+        "Los cruces ya jugados respetan el resultado real; el resto se resuelve con el modelo entrenado."
+    )
+
+    col_det, col_mc = st.columns(2)
+
+    with col_det:
+        st.markdown("**Predicción puntual**")
+        st.caption("Un solo camino: en cada cruce gana el equipo con mayor probabilidad según el modelo.")
+        if st.button("Calcular camino más probable"):
+            with st.spinner("Encadenando rondas..."):
+                st.session_state['bracket_unico'] = simular_bracket_unico(aleatorio=False)
+
+    with col_mc:
+        st.markdown("**Simulación Monte Carlo**")
+        st.caption("Miles de corridas aleatorias para estimar probabilidades de avance por equipo.")
+        n_iter_bracket = st.slider("Iteraciones", min_value=500, max_value=10000, value=2000, step=500)
+        if st.button("Simular bracket completo", type="primary"):
+            with st.spinner(f"Corriendo {n_iter_bracket} simulaciones del cuadro completo..."):
+                st.session_state['bracket_mc'] = simular_bracket_montecarlo(n_iter=n_iter_bracket)
+
+    if 'bracket_unico' in st.session_state:
+        detalle_por_etapa, campeon = st.session_state['bracket_unico']
+        st.markdown("#### Camino más probable")
+        st.success(f"🏆 Campeón pronosticado: **{campeon}**")
+
+        for etapa in ETAPAS_BRACKET:
+            partidos_etapa = detalle_por_etapa[etapa]
+            with st.expander(f"{etapa} · {len(partidos_etapa)} partido(s)", expanded=(etapa == 'Final')):
+                for fila in partidos_etapa:
+                    clase_pill = 'ok' if fila['estado'] == 'Confirmado' else 'dark'
+                    st.markdown(
+                        f"<div class='sim-card' style='margin-bottom:0.5rem;'>"
+                        f"<span class='sim-pill {clase_pill}'>{fila['estado']}</span> "
+                        f"<strong>{fila['equipo_A']} vs {fila['equipo_B']}</strong> "
+                        f"→ Gana <strong>{fila['ganador']}</strong>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+
+    if 'bracket_mc' in st.session_state:
+        st.markdown("#### Probabilidades Monte Carlo por etapa")
+        st.caption("Porcentaje de simulaciones (de las corridas elegidas arriba) en que cada equipo alcanzó cada instancia del torneo.")
+        st.dataframe(st.session_state['bracket_mc'], use_container_width=True, hide_index=True)
