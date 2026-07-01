@@ -903,6 +903,15 @@ def simular_bracket_montecarlo(n_iter=2000):
     ).reset_index(drop=True)
 
 
+def simular_mundial_2026_montecarlo(n_iter=2000):
+    """Alias explícito para la simulación del Mundial 2026.
+
+    La corrida parte de la fase de grupos ya cerrada y de las llaves de 16avos
+    fijadas en CSV, por lo que solo simula el tramo eliminatorio hasta la final.
+    """
+    return simular_bracket_montecarlo(n_iter=n_iter)
+
+
 # --- Interfaz de Usuario ---
 st.sidebar.header("Parámetros de Simulación")
 st.markdown("""
@@ -1028,6 +1037,10 @@ with tabs[3]:
         "Encadena los resultados de 16avos con Octavos, Cuartos, Semifinal y Final. "
         "Los cruces ya jugados respetan el resultado real; el resto se resuelve con el modelo entrenado."
     )
+    st.info(
+        "La simulación toma como base la fase de grupos ya terminada y las llaves de 16avos aseguradas; "
+        "desde ahí corre Monte Carlo hasta definir el campeón."
+    )
 
     col_det, col_mc = st.columns(2)
 
@@ -1042,9 +1055,9 @@ with tabs[3]:
         st.markdown("**Simulación Monte Carlo**")
         st.caption("Miles de corridas aleatorias para estimar probabilidades de avance por equipo.")
         n_iter_bracket = st.slider("Iteraciones", min_value=500, max_value=10000, value=2000, step=500)
-        if st.button("Simular bracket completo", type="primary"):
+        if st.button("Simular cuadro 16avos -> Final", type="primary"):
             with st.spinner(f"Corriendo {n_iter_bracket} simulaciones del cuadro completo..."):
-                st.session_state['bracket_mc'] = simular_bracket_montecarlo(n_iter=n_iter_bracket)
+                st.session_state['bracket_mc'] = simular_mundial_2026_montecarlo(n_iter=n_iter_bracket)
 
     if 'bracket_unico' in st.session_state:
         detalle_por_etapa, campeon = st.session_state['bracket_unico']
