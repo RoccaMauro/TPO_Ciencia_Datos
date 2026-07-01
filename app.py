@@ -916,22 +916,27 @@ def simular_mundial_2026_montecarlo(n_iter=2000):
 st.sidebar.header("Parámetros de Simulación")
 st.markdown("""
 <style>
-.sim-card {
+    .sim-card {
     border: 1px solid rgba(49, 51, 63, 0.18);
-    border-radius: 16px;
-    padding: 1rem 1rem 0.75rem 1rem;
-    background: linear-gradient(180deg, rgba(250, 250, 252, 0.96), rgba(244, 247, 255, 0.92));
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+    border-radius: 12px;
+    padding: 0.75rem 0.9rem;
+    margin-bottom: 0.6rem;
+    background: linear-gradient(180deg, rgba(250, 250, 252, 0.98), rgba(244, 247, 255, 0.97));
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    color: #0b1220; /* texto oscuro para buen contraste en temas claros y oscuros */
+    font-size: 0.95rem;
 }
+.sim-card strong { color: #081027; }
+.sim-card .match-meta { color: #334155; font-weight:600; margin-left:0.45rem; }
 .sim-pill {
     display: inline-block;
-    padding: 0.2rem 0.55rem;
+    padding: 0.22rem 0.6rem;
     border-radius: 999px;
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.02em;
 }
-.sim-pill.ok { background: #e7f8ee; color: #176b39; }
+.sim-pill.ok { background: #176b39; color: #ffffff; }
 .sim-pill.warn { background: #fff4d6; color: #8f5a00; }
 .sim-pill.dark { background: #e8eefc; color: #1f3a68; }
 </style>
@@ -951,9 +956,21 @@ with tabs[0]:
             df_grupo = construir_grupo_dataframe(grupo)
             champion = df_grupo.iloc[0]['Equipo']
             runner_up = df_grupo.iloc[1]['Equipo']
+            third = df_grupo.iloc[2]['Equipo'] if len(df_grupo) > 2 else None
+            third_pill = ""
+            if third and third in BEST_THIRD_TEAMS:
+                third_pill = f" <span class='sim-pill warn'>3° {third}</span>"
+
             st.markdown(f"<div class='sim-card'>", unsafe_allow_html=True)
             st.markdown(f"**Grupo {grupo}**")
-            st.markdown(f"<span class='sim-pill dark'>1° {champion}</span> <span class='sim-pill ok'>2° {runner_up}</span>", unsafe_allow_html=True)
+            st.markdown(
+                (
+                    f"<span class='sim-pill dark'>1° {champion}</span> "
+                    f"<span class='sim-pill ok'>2° {runner_up}</span>"
+                    f"{third_pill}"
+                ),
+                unsafe_allow_html=True,
+            )
             st.dataframe(
                 df_grupo,
                 hide_index=True,
@@ -986,7 +1003,13 @@ with tabs[1]:
     st.markdown("### Cruces confirmados")
     for equipo_A, equipo_B, marcador, ganador in CRUCES_CONFIRMADOS_16AVOS:
         st.markdown(
-            f"<div class='sim-card'><span class='sim-pill ok'>Confirmado</span> **{equipo_A} vs {equipo_B}**: {marcador} para **{ganador}**</div>",
+            (
+                "<div class='sim-card'>"
+                "<span class='sim-pill ok'>Confirmado</span> "
+                f"<strong>{equipo_A} vs {equipo_B}</strong> "
+                f"<span class='match-meta'>— {marcador}</span> para <strong>{ganador}</strong>"
+                "</div>"
+            ),
             unsafe_allow_html=True,
         )
 
