@@ -17,6 +17,8 @@ from simulator.eliminatorias import (
     simular_mundial_2026_montecarlo as simular_mundial_2026_montecarlo_base,
 )
 
+st.set_page_config(page_title="Scout Mundial 2026", page_icon="🏆", layout="wide")
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 GROUPS_CSV_PATH = os.path.join(DATA_DIR, "grupos_2026.csv")
@@ -770,6 +772,88 @@ def simular_llaves_montecarlo(fixtures, n_iter=5000):
 st.sidebar.header("Parámetros de Simulación")
 st.markdown("""
 <style>
+    .main .block-container {
+        padding-top: 1.1rem;
+        padding-bottom: 2rem;
+        max-width: 1350px;
+    }
+    .hero-shell {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 28px;
+        padding: 1.4rem 1.5rem 1.25rem;
+        margin: 0.15rem 0 1rem;
+        background:
+            radial-gradient(circle at top right, rgba(255, 214, 102, 0.28), transparent 24%),
+            radial-gradient(circle at bottom left, rgba(52, 211, 153, 0.16), transparent 26%),
+            linear-gradient(135deg, #09111f 0%, #111c33 52%, #17324f 100%);
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.24);
+    }
+    .hero-shell::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(120deg, rgba(255,255,255,0.08), transparent 38%, rgba(255,255,255,0.04));
+        pointer-events: none;
+    }
+    .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #e5eefb;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        backdrop-filter: blur(8px);
+    }
+    .hero-title {
+        margin: 0.65rem 0 0.25rem;
+        color: #f8fbff;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: clamp(2rem, 4vw, 3.4rem);
+        line-height: 1.02;
+        letter-spacing: -0.03em;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+    }
+    .hero-subtitle {
+        margin: 0;
+        max-width: 78ch;
+        color: rgba(226, 232, 240, 0.92);
+        font-size: 1rem;
+        line-height: 1.55;
+    }
+    .hero-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        margin-top: 1rem;
+    }
+    .hero-stat {
+        padding: 0.55rem 0.8rem;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.11);
+        color: #f8fbff;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        min-width: 155px;
+    }
+    .hero-stat .label {
+        display: block;
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.8;
+    }
+    .hero-stat .value {
+        display: block;
+        margin-top: 0.18rem;
+        font-weight: 700;
+        font-size: 0.98rem;
+    }
     .sim-card {
     border: 1px solid rgba(49, 51, 63, 0.18);
     border-radius: 12px;
@@ -793,8 +877,40 @@ st.markdown("""
 .sim-pill.ok { background: #176b39; color: #ffffff; }
 .sim-pill.warn { background: #fff4d6; color: #8f5a00; }
 .sim-pill.dark { background: #e8eefc; color: #1f3a68; }
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0.4rem;
+}
+.stTabs [data-baseweb="tab"] {
+    border-radius: 999px;
+    padding: 0.55rem 0.95rem;
+    background: rgba(15, 23, 42, 0.05);
+    font-weight: 600;
+}
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #0f172a, #1d4ed8) !important;
+    color: #ffffff !important;
+}
 </style>
 """, unsafe_allow_html=True)
+
+st.markdown(
+    """
+    <div class="hero-shell">
+        <span class="hero-badge">Scout Mundial 2026 · simulador predictivo</span>
+        <h1 class="hero-title">Simulador del Mundial 2026</h1>
+        <p class="hero-subtitle">
+            Explorá la fase de grupos, las llaves de 16avos y el bracket completo hasta la final.
+            La app combina datos históricos, resultados confirmados y un modelo de clasificación para estimar cada cruce.
+        </p>
+        <div class="hero-stats">
+            <div class="hero-stat"><span class="label">Cobertura</span><span class="value">16avos a la final</span></div>
+            <div class="hero-stat"><span class="label">Motor</span><span class="value">Random Forest + Monte Carlo</span></div>
+            <div class="hero-stat"><span class="label">Datos</span><span class="value">Grupos, llaves y métricas históricas</span></div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 tabs = st.tabs(["Fase de grupos", "Llaves", "Predicciones", "Bracket completo"])
 
