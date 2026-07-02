@@ -57,13 +57,6 @@ def cargar_elo():
     df = unificar_nombres(df, "equipo")
     return df
 
-def cargar_fifa_ranking():
-    print("Descargando: fifa-football-world-cup...")
-    base_path = kagglehub.dataset_download("piterfm/fifa-football-world-cup")
-    ranking = pd.read_csv(os.path.join(base_path, "fifa_ranking_2022-10-06.csv"))
-    ranking = unificar_nombres(ranking, "team")
-    return ranking
-
 def cargar_team_dataset():
     print("Descargando: fifa-world-cup-team-dataset...")
     base_path = kagglehub.dataset_download("harrachimustapha/fifa-world-cup-team-dataset")
@@ -77,6 +70,28 @@ def cargar_grupos_2026():
     teams = pd.read_csv(os.path.join(base_path, "teams.csv"))
     schedule = pd.read_csv(os.path.join(base_path, "matches.csv"))
     return teams, schedule
+
+
+def filtrar_partidos_con_elo(resultados, elo):
+    """Conserva partidos donde ambos equipos tienen un Elo real para ese anio."""
+    claves_elo = set(zip(elo["equipo"], elo["anio"]))
+    anios = resultados["date"].dt.year
+
+    tiene_elo_local = [
+        (equipo, anio) in claves_elo
+        for equipo, anio in zip(resultados["equipo_local"], anios)
+    ]
+    tiene_elo_visitante = [
+        (equipo, anio) in claves_elo
+        for equipo, anio in zip(resultados["equipo_visitante"], anios)
+    ]
+
+    mascara = np.asarray(tiene_elo_local) & np.asarray(tiene_elo_visitante)
+    filtrados = resultados.loc[mascara].copy()
+
+    print(f"Partidos con Elo real para ambos equipos: {len(filtrados)}")
+    print(f"Partidos descartados por falta de Elo: {len(resultados) - len(filtrados)}")
+    return filtrados
 
 # ---------------------------------------------------------------------------
 # 2. FEATURE ENGINEERING - VARIABLES COMPARATIVAS POR PARTIDO
@@ -111,8 +126,13 @@ def calcular_forma_reciente(resultados, equipo, fecha_referencia, ventana=10):
         "goles_contra_prom": partidos["gc"].mean(),
     }
 
-def construir_dataset_partidos(resultados, elo, fifa_ranking, team_hist):
+def construir_dataset_partidos(
+    resultados, elo, team_hist, historial_resultados=None
+):
     filas = []
+    historial_resultados = (
+        resultados if historial_resultados is None else historial_resultados
+    )
     
     # Pre-indexar ELO para búsquedas ultra rápidas y precisas
     elo_dict = elo.groupby(['equipo', 'anio'])['elo'].last().to_dict()
@@ -122,18 +142,12 @@ def construir_dataset_partidos(resultados, elo, fifa_ranking, team_hist):
         fecha = row["date"]
         anio_partido = fecha.year
 
-        # Búsqueda precisa de Elo Histórico (Fallback a 1500 si es debutante)
-        elo_a = elo_dict.get((equipo_a, anio_partido), elo_dict.get((equipo_a, anio_partido-1), 1500))
-        elo_b = elo_dict.get((equipo_b, anio_partido), elo_dict.get((equipo_b, anio_partido-1), 1500))
+        # Busqueda estricta: ambos valores existen gracias al filtro previo.
+        elo_a = elo_dict[(equipo_a, anio_partido)]
+        elo_b = elo_dict[(equipo_b, anio_partido)]
 
-        # Ranking estático (solo como referencia auxiliar, el modelo confiará más en ELO)
-        rank_a = fifa_ranking[fifa_ranking["team"] == equipo_a]["rank"].max()
-        rank_b = fifa_ranking[fifa_ranking["team"] == equipo_b]["rank"].max()
-        rank_a = rank_a if pd.notna(rank_a) else 100
-        rank_b = rank_b if pd.notna(rank_b) else 100
-
-        forma_a = calcular_forma_reciente(resultados, equipo_a, fecha)
-        forma_b = calcular_forma_reciente(resultados, equipo_b, fecha)
+        forma_a = calcular_forma_reciente(historial_resultados, equipo_a, fecha)
+        forma_b = calcular_forma_reciente(historial_resultados, equipo_b, fecha)
 
         hist_a = team_hist[team_hist["team"] == equipo_a]
         hist_b = team_hist[team_hist["team"] == equipo_b]
@@ -148,10 +162,10 @@ def construir_dataset_partidos(resultados, elo, fifa_ranking, team_hist):
         else: etiqueta = "Gana_B"
 
         filas.append({
+            "fecha": fecha,
             "equipo_A": equipo_a,
             "equipo_B": equipo_b,
             "diff_elo": elo_a - elo_b,
-            "diff_ranking_fifa": rank_b - rank_a, # Si B tiene número mayor (peor rank), la diferencia es positiva a favor de A
             "diff_goles_favor_prom": forma_a["goles_favor_prom"] - forma_b["goles_favor_prom"],
             "diff_goles_contra_prom": forma_a["goles_contra_prom"] - forma_b["goles_contra_prom"],
             "diff_pct_victorias": forma_a["pct_victorias"] - forma_b["pct_victorias"],
@@ -169,15 +183,21 @@ def main():
     print("Iniciando tubería de datos ETL...")
     resultados = cargar_resultados_historicos()
     elo = cargar_elo()
-    fifa_ranking = cargar_fifa_ranking()
     team_train = cargar_team_dataset()
     teams_2026, schedule_2026 = cargar_grupos_2026()
 
     resultados_recientes = resultados[resultados["date"] >= "2010-01-01"]
     print(f"Partidos desde la era moderna (2010) a procesar: {len(resultados_recientes)}")
 
+    resultados_con_elo = filtrar_partidos_con_elo(resultados_recientes, elo)
+
     print("\nConstruyendo dataset integrado con Features (Esto puede tardar unos minutos)...")
-    dataset = construir_dataset_partidos(resultados_recientes, elo, fifa_ranking, team_train)
+    dataset = construir_dataset_partidos(
+        resultados_con_elo,
+        elo,
+        team_train,
+        historial_resultados=resultados_recientes,
+    )
 
     dataset.to_csv("dataset_integrado.csv", index=False)
     teams_2026.to_csv("teams_2026.csv", index=False)

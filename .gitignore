@@ -4,6 +4,8 @@
 
 # entorno
 venv/
+.venv/
+.venv*/
 .env/
 
 # cache Python
